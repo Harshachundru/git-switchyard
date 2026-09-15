@@ -24,4 +24,4 @@ Once this lives in its own repo (or alongside `docker-quick-reference/` in a sma
 
 1. Push `index.html`, `styles.css`, and `script.js` to the repo root (or a `docs/` folder).
 2. In the repo's **Settings → Pages**, set the source to the branch/folder containing these files.
-3. GitHub publishes it at `https://<username>.github.io/<repo>/`.
+3. GitHub publishes it at `https://harshachundru.github.io/git-switchyard/`.
