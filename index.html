@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Git Switchyard — Multi-Profile &amp; SSH Quick Reference</title>
-  <meta name="description" content="A printable reference for running multiple Git/SSH identities: checking your active profile, generating and wiring SSH keys, and switching safely between personal, work, and GitLab accounts.">
+  <meta name="description" content="A printable reference for running multiple Git/SSH identities: checking your active profile, generating and wiring SSH keys, switching safely between personal, work, and GitLab accounts, and recovering from first-push errors and wrong-author commits.">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="Git Switchyard">
@@ -32,7 +32,7 @@
       <p class="subtitle">Multi-Profile Routing Guide</p>
       <p class="lede">Running a personal account, a work account, and maybe a GitLab account off one machine means every push needs to land on the right track. This is the order you check, wire, and test it in.</p>
       <div class="stamp-row">
-        <span><strong>Format</strong> · one page, eight sidings</span>
+        <span><strong>Format</strong> · one page, eleven sidings</span>
         <span><strong>Shell</strong> · bash / zsh</span>
         <span><strong>Keys</strong> · ed25519</span>
       </div>
@@ -175,11 +175,77 @@ Host gitlab.com
       </div>
     </section>
 
+    <section class="crate">
+      <div class="crate-head">
+        <span class="crate-num">09</span>
+        <h2 class="crate-name">Send the first train</h2>
+      </div>
+      <p class="crate-note">Everything above assumes the repo already exists. A brand-new folder has no track at all until <code class="inline">git init</code>, and no destination until you add a remote. Do it in this order, and address the remote through your account's <em>alias</em> (<code class="inline">github.com-personal</code>) — a plain <code class="inline">git@github.com</code> address quietly routes through your default key instead.</p>
+      <p class="crate-note">First, create the destination on GitHub as an <strong>empty</strong> repo — no README, no .gitignore, no licence. Anything GitHub adds on creation is history your local repo doesn't have, and it will bounce your first push.</p>
+      <div class="col-labels"><span>Command</span><span class="desc-label">What it does</span></div>
+      <div class="manifest-table">
+        <div class="cmd-row"><code class="cmd">git init -b main</code><span class="cmd-desc">Turn the current folder into a repo with <code class="inline">main</code> as its first branch (<code class="inline">-b</code> needs a value)</span></div>
+        <div class="cmd-row"><code class="cmd">git branch -M main</code><span class="cmd-desc">Rename the current branch to <code class="inline">main</code> if the repo already started life as <code class="inline">master</code></span></div>
+        <div class="cmd-row"><code class="cmd">git config --show-origin user.email</code><span class="cmd-desc">Check the identity <em>now that it's a repo</em> — see siding 11 for why this matters</span></div>
+        <div class="cmd-row"><code class="cmd">git add . &amp;&amp; git commit -m "Initial commit"</code><span class="cmd-desc">Stage everything and make the first commit</span></div>
+        <div class="cmd-row"><code class="cmd">git remote add origin git@github.com-personal:&lt;username&gt;/&lt;repo&gt;.git</code><span class="cmd-desc">Name the destination <code class="inline">origin</code>, using the personal alias so the personal key is offered</span></div>
+        <div class="cmd-row"><code class="cmd">git remote -v</code><span class="cmd-desc">Read the remote back — confirm the host says <code class="inline">github.com-personal</code>, not <code class="inline">github.com</code>, and that the repo name is spelled right</span></div>
+        <div class="cmd-row"><code class="cmd">git push -u origin main</code><span class="cmd-desc">Send the branch and remember it, so later a bare <code class="inline">git push</code> knows where to go</span></div>
+      </div>
+    </section>
+
+    <section class="crate">
+      <div class="crate-head">
+        <span class="crate-num">10</span>
+        <h2 class="crate-name">Read the derailment</h2>
+      </div>
+      <p class="crate-note">When a push fails, the error names the exact cause of the wreck — you only have to know which fault it points at. The four you are most likely to meet on a first push are the first four rows. Most come down to one of three things: you are not standing in a repo, the remote address is wrong, or the remote has history you don't.</p>
+      <div class="col-labels"><span>Error you see</span><span class="desc-label">What it means, and the fix</span></div>
+      <div class="manifest-table">
+        <div class="cmd-row"><code class="cmd">fatal: not a git repository (or any of the parent directories): .git</code><span class="cmd-desc">You are outside a repo, so every <code class="inline">git remote</code> and <code class="inline">git push</code> fails. <code class="inline">cd</code> into the project, or run <code class="inline">git init -b main</code> if it was never initialised. <code class="inline">git rev-parse --show-toplevel</code> shows which repo you are in</span></div>
+        <div class="cmd-row"><code class="cmd">git@github.com: Permission denied (publickey).</code><span class="cmd-desc">SSH offered a key GitHub doesn't accept for this account — almost always because the remote uses the plain <code class="inline">github.com</code> host instead of your alias. Compare <code class="inline">git remote -v</code> with your <code class="inline">Host</code> lines, then <code class="inline">git remote set-url origin git@github.com-personal:&lt;username&gt;/&lt;repo&gt;.git</code>. If it persists, <code class="inline">ssh -vT git@github.com-personal</code> shows which key is being offered</span></div>
+        <div class="cmd-row"><code class="cmd">ERROR: Repository not found.</code><span class="cmd-desc">The repo doesn't exist under that account, the name or username is misspelled, or the key belongs to an account with no access. Create the empty repo on GitHub, or correct the URL with <code class="inline">git remote set-url</code></span></div>
+        <div class="cmd-row"><code class="cmd">! [rejected] main -&gt; main (fetch first)</code><span class="cmd-desc">The remote already holds commits you don't have — usually a README added at creation. If that history is unwanted, delete and recreate the repo empty. To keep it: <code class="inline">git pull origin main --allow-unrelated-histories</code>, then push again</span></div>
+        <div class="cmd-row"><code class="cmd">fatal: refusing to merge unrelated histories</code><span class="cmd-desc">A pull met two histories with no common ancestor. Add <code class="inline">--allow-unrelated-histories</code> once, deliberately, as in the row above</span></div>
+        <div class="cmd-row"><code class="cmd">error: remote origin already exists.</code><span class="cmd-desc">Don't add it again — repoint it: <code class="inline">git remote set-url origin &lt;new-url&gt;</code></span></div>
+        <div class="cmd-row"><code class="cmd">error: No such remote 'origin'</code><span class="cmd-desc">The opposite mistake: there is nothing to repoint yet. Use <code class="inline">git remote add origin &lt;url&gt;</code> first</span></div>
+        <div class="cmd-row"><code class="cmd">fatal: The current branch main has no upstream branch.</code><span class="cmd-desc">First push of a branch. Run <code class="inline">git push -u origin main</code> once; plain <code class="inline">git push</code> works afterwards</span></div>
+        <div class="cmd-row"><code class="cmd">head: #: No such file or directory</code><span class="cmd-desc">Not a git error — you pasted a command with a trailing <code class="inline"># comment</code> into zsh, which doesn't treat <code class="inline">#</code> as a comment at an interactive prompt, so the comment words were passed as arguments. Drop the comment, or run <code class="inline">setopt interactivecomments</code> once (add it to <code class="inline">~/.zshrc</code> to keep it)</span></div>
+        <div class="cmd-row"><code class="cmd">error: switch `b' requires a value</code><span class="cmd-desc">The branch name is missing: <code class="inline">git init -b main</code>, not <code class="inline">git init -b</code></span></div>
+      </div>
+      <p class="crate-note">A typo in a remote name doesn't error at all — it just creates a second, useless remote (<code class="inline">orogin</code> next to a missing <code class="inline">origin</code>). That is why <code class="inline">git remote -v</code> belongs after every change:</p>
+      <div class="manifest-table">
+        <div class="cmd-row"><code class="cmd">git remote rename orogin origin</code><span class="cmd-desc">Fix a misspelled remote name in place</span></div>
+        <div class="cmd-row"><code class="cmd">git remote remove orogin</code><span class="cmd-desc">Delete a stray remote you added by mistake</span></div>
+        <div class="cmd-row"><code class="cmd">git remote set-url origin git@github.com-personal:&lt;username&gt;/&lt;repo&gt;.git</code><span class="cmd-desc">Switch an <code class="inline">https://…</code> remote to SSH — HTTPS never uses your SSH keys at all, so the alias only helps once the URL is SSH</span></div>
+      </div>
+    </section>
+
+    <section class="crate">
+      <div class="crate-head">
+        <span class="crate-num">11</span>
+        <h2 class="crate-name">Check the conductor's badge</h2>
+      </div>
+      <p class="crate-note">The push can succeed and still be wrong: the key decides <em>where</em> the train is allowed to go, but the commit's author badge decides <em>who</em> is recorded as driving it. If your global identity is your work account, a commit made in a personal folder carries the work name and email — and it is now stamped into history. Look at the badge <em>before</em> the first push, when fixing it is free.</p>
+      <p class="crate-note">One trap: <code class="inline">includeIf "gitdir:…"</code> from siding 07 only applies <em>inside a repo</em>. Running <code class="inline">git config user.email</code> in a folder that hasn't been <code class="inline">git init</code>-ed shows your global identity no matter how well the rules are written. Check after <code class="inline">git init</code>, not before.</p>
+      <div class="col-labels"><span>Command</span><span class="desc-label">What it does</span></div>
+      <div class="manifest-table">
+        <div class="cmd-row"><code class="cmd">git log -1 --format='%an &lt;%ae&gt;'</code><span class="cmd-desc">Show the author name and email recorded on the latest commit</span></div>
+        <div class="cmd-row"><code class="cmd">git log --format='%h %an &lt;%ae&gt;'</code><span class="cmd-desc">List the author on every commit, to see how far the wrong badge spread</span></div>
+        <div class="cmd-row"><code class="cmd">git config --local user.name "&lt;Your Name&gt;"</code><span class="cmd-desc">Set the correct name for this repo only</span></div>
+        <div class="cmd-row"><code class="cmd">git config --local user.email "&lt;you@example.com&gt;"</code><span class="cmd-desc">Set the correct email for this repo only — the GitHub <code class="inline">…@users.noreply.github.com</code> address keeps your real one private</span></div>
+        <div class="cmd-row"><code class="cmd">git commit --amend --reset-author --no-edit</code><span class="cmd-desc">Re-stamp the <em>latest</em> commit with the identity now configured, keeping its message</span></div>
+        <div class="cmd-row"><code class="cmd">git rebase -r --root --exec "git commit --amend --no-edit --reset-author"</code><span class="cmd-desc">Re-stamp <em>every</em> commit when there is more than one. Rewrites history — only do this before anything has been pushed or shared</span></div>
+      </div>
+      <p class="crate-note">Once a wrong-author commit has been pushed, the fix means force-pushing rewritten history, which breaks anyone who already pulled it. Cheaper to never get there: verify the badge with the first command above, every time, before a first push.</p>
+    </section>
+
     <footer class="ports">
       <p class="ports-label">Before you publish or share a key</p>
       <ul>
         <li>Commit only <code class="inline">.pub</code> files anywhere, ever — a private key belongs on one machine, in <code class="inline">~/.ssh</code>, mode <code class="inline">600</code></li>
         <li>Add <code class="inline">config</code> to your global <code class="inline">~/.ssh</code> — never to a repo's <code class="inline">.gitignore</code> as if that were protection; it should never be inside a repo at all</li>
+        <li>Run <code class="inline">git log -1 --format='%an &lt;%ae&gt;'</code> before a first push — a wrong author is free to fix locally and expensive to fix once it is on the remote</li>
         <li>If a private key is ever pushed by accident, treat it as compromised: revoke it on the remote host and generate a fresh one — rewriting history does not undo the exposure</li>
       </ul>
       <p class="fine">Git Switchyard · Rev. 2026.09 · printable A4/Letter</p>
